@@ -67,30 +67,64 @@
 ```
 gx = floor(x_norm * gw)
 gy = floor(y_norm * gh)
+# 上限処理（安全のため必須）
+gx = min(gx, gw - 1)
+gy = min(gy, gh - 1)
 ```
+
+gx = floor(x_norm * gw)
+gy = floor(y_norm * gh)
+
+````
 
 ---
 
 ## ops.jsonl（schema v1）
 
+### 最小例
+
+```json
+{"t_log":12.221,"kind":"tap","x":840,"y":1560}
+````
+
+### フィールド
+
 * `t_log`: run開始からの秒
+* `kind`: **必須**（v1: `tap`, `key`, `mouse_move`）
 * `x`,`y`: **動画フレーム座標（px）**
 
 ---
 
 ## meta.json（schema v1）
 
-必須キー:
+### 同期
 
-* run_id
-* video_path
-* ops_path
-* video_w, video_h
-* roi_board
-* gw, gh
-* offset_sec
-* fps
-* created_at
+動画時刻と操作ログ時刻は次式で対応づける。
+
+```
+t_video = t_log + offset_sec
+```
+
+* `offset_sec` は必須
+* 初期は手動調整を想定（±100ms 目標）
+
+### 最小例
+
+```json
+{
+  "run_id": "runA",
+  "video_path": "runs/runA/video.mp4",
+  "ops_path": "runs/runA/ops.jsonl",
+  "video_w": 720,
+  "video_h": 1600,
+  "roi_board": {"x1":0,"y1":110,"x2":720,"y2":1540},
+  "gw": 6,
+  "gh": 9,
+  "offset_sec": 0.12,
+  "fps": 60,
+  "created_at": "2026-01-20T10:00:00+09:00"
+}
+```
 
 ---
 
