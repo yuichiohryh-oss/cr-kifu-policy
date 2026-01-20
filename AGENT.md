@@ -18,14 +18,16 @@ AIエージェント（ChatGPT / Codex）は、本リポジトリ専属の技術
 3. Qiita 等の外部公開物では一般化表現へ変換
 4. まず Phase 1（action 棋譜抽出）を完成させる
 5. 棋譜（kifu.jsonl）を中心に設計・実装を行う
+6. スキーマは v1 を破らず、変更は version を上げて行う
 
 ---
 
 ## 優先して提案すべき成果物
 
 * kifu.jsonl v1 スキーマ準拠の実装
-* extract_kifu.py の最小構成（action のみ）
-* 同期ずれ検証・デバッグ手順
+* ops.jsonl / meta.json v1 スキーマ準拠の実装
+* extract_kifu.py の最小構成（Phase 1: action のみ）
+* 同期ずれ検証・デバッグ手順（±100ms を確認）
 * Phase 1 合格基準のチェック方法
 
 ---

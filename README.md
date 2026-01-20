@@ -11,11 +11,13 @@
 ## 全体フロー
 
 ```
-録画動画 + 操作ログ
+録画動画 + 操作ログ (ops.jsonl)
+        ↓
+   ランメタ生成 (meta.json)
         ↓
    棋譜生成 (kifu.jsonl)
         ↓
-   dataset 生成
+   dataset 生成 (dataset.jsonl)
         ↓
    行動提案モデル学習
         ↓
@@ -37,8 +39,8 @@
 │   └── <run_id>/
 │       ├── video.mp4
 │       ├── ops.jsonl
-│       ├── kifu.jsonl
-│       └── meta.json
+│       ├── meta.json
+│       └── kifu.jsonl
 ├── models/
 ├── PROJECT_STATUS.md
 ├── AGENT.md
@@ -47,32 +49,62 @@
 
 ---
 
-## kifu.jsonl フォーマット（v1 抜粋）
+## kifu.jsonl（v1）例
 
 ```json
-{"schema_version":"kifu/1","event_id":"runA:12","run_id":"runA","t":12.345,"seq":12,"type":"action","actor":"self","confidence":1.0,"slot":2,"pos_grid":{"gx":4,"gy":7}}
+{"schema_version":"kifu/1","run_id":"runA","seq":12,"event_id":"runA:12","t":12.345,"type":"action","actor":"self","confidence":1.0,"slot":2,"pos_grid":{"gx":4,"gy":7}}
+```
+
+* `seq` は run 内で単調増加する通番
+* `event_id` は `${run_id}:${seq}` を推奨
+
+---
+
+## ops.jsonl（v1）最小例
+
+```json
+{"t_log":12.221,"kind":"tap","x":840,"y":1560}
+```
+
+* `t_log` は run開始からの秒
+* 同期は PROJECT_STATUS.md の式（`t_video = t_log + offset_sec`）で行う
+
+---
+
+## meta.json（v1）最小例
+
+```json
+{
+  "run_id": "runA",
+  "video_path": "runs/runA/video.mp4",
+  "ops_path": "runs/runA/ops.jsonl",
+  "roi_board": {"x1":0,"y1":110,"x2":720,"y2":1540},
+  "gw": 6,
+  "gh": 9,
+  "offset_sec": 0.12,
+  "fps": 60,
+  "created_at": "2026-01-20T10:00:00+09:00"
+}
 ```
 
 ---
 
-## 最小実行例（Phase 1）
+## 最小実行例（Phase 1: action のみ）
 
 ```bash
 python tools/extract_kifu.py \
   --video runs/runA/video.mp4 \
   --ops runs/runA/ops.jsonl \
-  --out runs/runA/kifu.jsonl \
-  --gw 6 --gh 9 \
-  --offset-sec 0.12
+  --meta runs/runA/meta.json \
+  --out runs/runA/kifu.jsonl
 ```
 
 ---
 
-## 開発方針
+## dataset 生成（概要）
 
-* まず action イベントのみを高精度で抽出する
-* 棋譜（kifu.jsonl）を唯一の正解データとする
-* Phase 1 合格後に spawn / resource を追加する
+* 出力: `runs/<run_id>/dataset.jsonl`（または `data/` 配下に集約）
+* 分割: run 単位で train/val/test（80/10/10）がデフォルト
 
 ---
 
