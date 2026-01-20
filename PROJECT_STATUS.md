@@ -1,5 +1,9 @@
 # PROJECT_STATUS.md
 
+> Doc revision: **rev 1.3**
+>
+> ※ ここでの rev は **ドキュメント/仕様書の改訂番号**です。`schema_version`（例: `kifu/1`, `dataset/1`）とは別物です。
+
 ## プロジェクト概要
 
 本プロジェクトは、**Clash Royale（クラロワ）の録画動画と操作ログから行動・状態イベントを抽出し、棋譜（イベント列）として構造化し、学習・推論によって次の行動を提案するAIシステム**を構築することを目的とする。
@@ -12,7 +16,7 @@
 
 ### 🎯 棋譜（イベント列）中心のパイプライン
 
-**（video.mp4 + ops.jsonl + meta.json）→ kifu.jsonl → dataset.jsonl → 学習 → 提案** を唯一の正式ルートとする。
+**（video.mp4 + ops.jsonl + meta.json）→ kifu.jsonl →（kifu.jsonl + video.mp4 + meta.json）→ dataset.jsonl → 学習 → 提案** を唯一の正式ルートとする。
 
 ---
 
@@ -50,7 +54,7 @@
 
 ---
 
-## 座標系（v1.3 明確化）
+## 座標系（rev 1.3 で明確化）
 
 ### pos_norm（盤面ROI正規化）
 
@@ -101,15 +105,13 @@ t_video = t_log + offset_sec
 
 * `t_log` は **録画開始（run開始）からの秒（float, sec）**
 
-### 座標系（重要・v1確定）
+### 座標系（v1確定）
 
 * `x`,`y` は **動画フレーム座標（px）**
 
   * 原点: 動画左上 (0,0)
   * 軸方向: x→右、y→下
   * 範囲: `0 <= x < video_w`, `0 <= y < video_h`
-
-> 端末画面座標や scrcpy ウィンドウ座標でログが出る場合は、ログ生成側で動画座標へ変換してから ops.jsonl に保存する。
 
 ### 必須フィールド
 
@@ -123,8 +125,6 @@ t_video = t_log + offset_sec
 ---
 
 ## meta.json（ランメタ情報）仕様（v1）
-
-**meta は meta.json に集約（単一の真実）。kifu の meta イベントは v1 では使わない。**
 
 ### 必須キー
 
@@ -140,13 +140,14 @@ t_video = t_log + offset_sec
 
 ---
 
-## dataset 生成（方針 v1.3）
+## dataset 生成（方針 v1）
 
-### frames の扱い（v1.3 で確定）
+### frames の扱い（rev 1.3 で確定）
 
-* **frames は `runs/<run_id>/frames/` に生成する**
-* **build_dataset.py が video から必要フレームを切り出して生成する**（事前生成は不要）
-* 命名: `frames/{seq:06d}.png` を推奨（dataset の sample_id と対応し、再現性が高い）
+* frames は `runs/<run_id>/frames/` に生成
+* build_dataset.py が video から必要フレームを切り出して生成（事前生成不要）
+* **frames の画像は「盤面ROIを切り出したROI画像」**（フルフレームではない）
+* 命名: `frames/{seq:06d}.png` を推奨
 
 ### dataset.jsonl 最小スキーマ（v1）
 
@@ -159,10 +160,6 @@ t_video = t_log + offset_sec
 | image_path     | string |  ✓ | `runs/<run_id>/frames/{seq:06d}.png` |
 | label          | object |  ✓ | Phase1: {slot, pos_grid}             |
 | meta_ref       | string | 任意 | meta.json 参照                         |
-
-### split
-
-* run 単位 split（80/10/10 デフォルト）
 
 ---
 
