@@ -22,7 +22,7 @@
 
 * 1行 = 1イベント（JSONL）
 * 時刻 `t` は **動画開始からの秒（float, sec）**
-* **`seq` は run 内で単調増加する通番（0,1,2,...)**（同時刻の順序安定化も兼ねる）
+* **`seq` は run 内で単調増加する通番（0,1,2,...)**
 * ソートキーは `(t, seq)`
 * **`schema_version` を必須** とし後方互換を担保
 
@@ -50,25 +50,34 @@
 
 ---
 
-## 座標系（v1）
+## 座標系（v1.3 明確化）
 
 ### pos_norm（盤面ROI正規化）
 
-* 基準: **盤面ROI**
+* 基準: **盤面ROI**（meta.json の roi_board。基準座標は動画座標）
 * 原点: 左上 (0,0)
-* 軸方向: x は右へ増加、y は下へ増加
+* 軸方向: x→右、y→下
 * 範囲外: clamp して [0,1] に収める
 
 ### pos_grid（離散グリッド）
 
 * 盤面ROIを `gw × gh` に等分
 * 原点: 左上 (0,0)
-* 軸方向: gx は右へ増加、gy は下へ増加
-* 変換:
+* 軸方向: gx→右、gy→下
 
-  * `gx = floor(x * gw)`
-  * `gy = floor(y * gh)`
-  * 端の丸めで gw/gh になった場合は `min(gx, gw-1)`, `min(gy, gh-1)`
+#### 変換（pos_norm から）
+
+> **ここで使う x/y は pos_norm（正規化座標）由来**。
+
+* `gx = floor(x_norm * gw)`
+* `gy = floor(y_norm * gh)`
+* `gx = min(gx, gw-1)`, `gy = min(gy, gh-1)`
+
+#### 変換（動画px→pos_grid を直接やる場合）
+
+* `x_norm = clamp((x_px - roi.x1)/roi_w, 0, 1)`
+* `y_norm = clamp((y_px - roi.y1)/roi_h, 0, 1)`
+* その後上の式で (gx, gy)
 
 ---
 
@@ -96,7 +105,7 @@ t_video = t_log + offset_sec
 
 * `x`,`y` は **動画フレーム座標（px）**
 
-  * 原点: 動画フレーム左上 (0,0)
+  * 原点: 動画左上 (0,0)
   * 軸方向: x→右、y→下
   * 範囲: `0 <= x < video_w`, `0 <= y < video_h`
 
@@ -115,7 +124,7 @@ t_video = t_log + offset_sec
 
 ## meta.json（ランメタ情報）仕様（v1）
 
-**meta は meta.json に集約する（単一の真実）。kifu の meta イベントは v1 では使わない。**
+**meta は meta.json に集約（単一の真実）。kifu の meta イベントは v1 では使わない。**
 
 ### 必須キー
 
@@ -129,27 +138,27 @@ t_video = t_log + offset_sec
 * fps（不明なら null 可）
 * created_at（ISO文字列）
 
-（必要になったら任意で）screen_w/screen_h, scrcpy_scale, window_offset などを追加してよい。
-
 ---
 
-## dataset 生成（方針 v1）
+## dataset 生成（方針 v1.3）
 
-### 出力形式
+### frames の扱い（v1.3 で確定）
 
-* dataset.jsonl（1行=1サンプル）
+* **frames は `runs/<run_id>/frames/` に生成する**
+* **build_dataset.py が video から必要フレームを切り出して生成する**（事前生成は不要）
+* 命名: `frames/{seq:06d}.png` を推奨（dataset の sample_id と対応し、再現性が高い）
 
 ### dataset.jsonl 最小スキーマ（v1）
 
-| key            | type   | 必須 | 内容                       |
-| -------------- | ------ | -: | ------------------------ |
-| schema_version | string |  ✓ | "dataset/1"              |
-| sample_id      | string |  ✓ | `${run_id}:${seq}` 推奨    |
-| run_id         | string |  ✓ | run識別子                   |
-| t_action       | number |  ✓ | 行動時刻（動画基準秒）              |
-| image_path     | string |  ✓ | 盤面ROI画像パス（相対推奨）          |
-| label          | object |  ✓ | Phase1: {slot, pos_grid} |
-| meta_ref       | string | 任意 | meta.json 参照             |
+| key            | type   | 必須 | 内容                                   |
+| -------------- | ------ | -: | ------------------------------------ |
+| schema_version | string |  ✓ | "dataset/1"                          |
+| sample_id      | string |  ✓ | `${run_id}:${seq}` 推奨                |
+| run_id         | string |  ✓ | run識別子                               |
+| t_action       | number |  ✓ | 行動時刻（動画基準秒）                          |
+| image_path     | string |  ✓ | `runs/<run_id>/frames/{seq:06d}.png` |
+| label          | object |  ✓ | Phase1: {slot, pos_grid}             |
+| meta_ref       | string | 任意 | meta.json 参照                         |
 
 ### split
 

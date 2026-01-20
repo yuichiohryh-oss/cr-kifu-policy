@@ -15,14 +15,12 @@
         ↓
    棋譜生成 (kifu.jsonl)
         ↓
-   dataset 生成 (dataset.jsonl)
+   dataset 生成 (dataset.jsonl + frames/)
         ↓
    行動提案モデル学習
         ↓
    次の行動を Top-k 提案
 ```
-
-※ ops/meta は「入力の前処理」ではなく、kifu 生成に必要な入力（同列）です。
 
 ---
 
@@ -32,7 +30,7 @@
 .
 ├── tools/
 │   ├── extract_kifu.py      # video + ops + meta → kifu
-│   ├── build_dataset.py     # kifu + meta → dataset
+│   ├── build_dataset.py     # kifu + meta + video → dataset + frames
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -41,7 +39,11 @@
 │       ├── ops.jsonl
 │       ├── meta.json
 │       ├── kifu.jsonl
-│       └── dataset.jsonl
+│       ├── dataset.jsonl
+│       └── frames/
+│           ├── 000000.png
+│           ├── 000001.png
+│           └── ...
 ├── models/
 ├── PROJECT_STATUS.md
 ├── AGENT.md
@@ -62,8 +64,6 @@
 
 * `x`,`y` は **動画フレーム座標（px）**（原点=左上、x→右、y→下）
 * `t_log` は run開始からの秒
-
-詳細は PROJECT_STATUS.md を参照。
 
 ---
 
@@ -87,12 +87,13 @@
 }
 ```
 
-### 作り方（最小）
+---
 
-* **手動で meta.json を作成**（上のテンプレを run に合わせて埋める）
-* `video_w/video_h` は動画の解像度（ffprobe や OpenCV で取得）
-* `roi_board` は動画座標(px)での盤面ROI
-* `offset_sec` は最初は手動で調整（±100ms 目標）
+## frames/（v1.3 で確定）
+
+* **frames は `runs/<run_id>/frames/` に生成**
+* **build_dataset.py が video から必要フレームを切り出して生成**（事前生成不要）
+* 命名: `frames/{seq:06d}.png`（dataset の sample_id と対応）
 
 ---
 
@@ -101,9 +102,6 @@
 ```json
 {"schema_version":"kifu/1","run_id":"runA","seq":12,"event_id":"runA:12","t":12.345,"type":"action","actor":"self","confidence":1.0,"slot":2,"pos_grid":{"gx":4,"gy":7}}
 ```
-
-* `seq` は run 内で単調増加
-* `event_id` は `${run_id}:${seq}` を推奨
 
 ---
 
@@ -123,7 +121,9 @@
 
 ---
 
-## 最小実行例（Phase 1: action のみ）
+## 最小実行例
+
+### 1) 棋譜生成（Phase 1: action のみ）
 
 ```bash
 python tools/extract_kifu.py \
@@ -131,6 +131,17 @@ python tools/extract_kifu.py \
   --ops runs/runA/ops.jsonl \
   --meta runs/runA/meta.json \
   --out runs/runA/kifu.jsonl
+```
+
+### 2) dataset + frames 生成
+
+```bash
+python tools/build_dataset.py \
+  --video runs/runA/video.mp4 \
+  --meta runs/runA/meta.json \
+  --kifu runs/runA/kifu.jsonl \
+  --out runs/runA/dataset.jsonl \
+  --frames-dir runs/runA/frames
 ```
 
 ---
