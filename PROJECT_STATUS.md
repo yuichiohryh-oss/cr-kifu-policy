@@ -2,7 +2,7 @@
 
 > Doc revision: **rev 1.3**
 >
-> ※ ここでの rev は **ドキュメント/仕様書の改訂番号**です。`schema_version`（例: `kifu/1`, `dataset/1`）とは別物です。
+> ※ この **rev** はドキュメント／仕様書の改訂番号です。`schema_version`（例: `kifu/1`, `dataset/1`）とは**別物**です。
 
 ## プロジェクト概要
 
@@ -20,152 +20,106 @@
 
 ---
 
-## kifu.jsonl 正式仕様（v1）
+## kifu.jsonl（schema v1）
 
 ### 基本方針
 
 * 1行 = 1イベント（JSONL）
 * 時刻 `t` は **動画開始からの秒（float, sec）**
-* **`seq` は run 内で単調増加する通番（0,1,2,...)**
+* **`seq` は run 内で単調増加する通番**
 * ソートキーは `(t, seq)`
-* **`schema_version` を必須** とし後方互換を担保
 
 ### 共通フィールド（必須）
 
-| key            | type    | 内容                           |
-| -------------- | ------- | ---------------------------- |
-| schema_version | string  | "kifu/1"                     |
-| run_id         | string  | セッション識別子                     |
-| seq            | integer | run 内通番（単調増加・一意）             |
-| event_id       | string  | 一意ID（推奨: `${run_id}:${seq}`） |
-| t              | number  | 動画開始からの秒                     |
-| type           | string  | action / spawn / resource    |
-| actor          | string  | self / enemy / system        |
-| confidence     | number  | [0,1]                        |
+| key            | type    | 内容                        |
+| -------------- | ------- | ------------------------- |
+| schema_version | string  | "kifu/1"                  |
+| run_id         | string  | セッション識別子                  |
+| seq            | integer | run 内通番                   |
+| event_id       | string  | `${run_id}:${seq}` 推奨     |
+| t              | number  | 動画開始からの秒                  |
+| type           | string  | action / spawn / resource |
+| actor          | string  | self / enemy / system     |
+| confidence     | number  | [0,1]                     |
 
-### action イベント（Phase 1 必須）
+### action イベント（Phase 1）
 
-| key      | type    | 必須 | 内容                             |
-| -------- | ------- | -: | ------------------------------ |
-| slot     | integer |  ✓ | 手札スロット（0–3）                    |
-| pos_grid | object  |  ✓ | { gx:int, gy:int }             |
-| pos_norm | object  | 任意 | { x:float, y:float }（盤面ROI正規化） |
-| raw      | object  | 任意 | 元ログ/デバッグ用                      |
-
----
-
-## 座標系（rev 1.3 で明確化）
-
-### pos_norm（盤面ROI正規化）
-
-* 基準: **盤面ROI**（meta.json の roi_board。基準座標は動画座標）
-* 原点: 左上 (0,0)
-* 軸方向: x→右、y→下
-* 範囲外: clamp して [0,1] に収める
-
-### pos_grid（離散グリッド）
-
-* 盤面ROIを `gw × gh` に等分
-* 原点: 左上 (0,0)
-* 軸方向: gx→右、gy→下
-
-#### 変換（pos_norm から）
-
-> **ここで使う x/y は pos_norm（正規化座標）由来**。
-
-* `gx = floor(x_norm * gw)`
-* `gy = floor(y_norm * gh)`
-* `gx = min(gx, gw-1)`, `gy = min(gy, gh-1)`
-
-#### 変換（動画px→pos_grid を直接やる場合）
-
-* `x_norm = clamp((x_px - roi.x1)/roi_w, 0, 1)`
-* `y_norm = clamp((y_px - roi.y1)/roi_h, 0, 1)`
-* その後上の式で (gx, gy)
+| key      | type    | 内容                       |
+| -------- | ------- | ------------------------ |
+| slot     | integer | 手札スロット（0–3）              |
+| pos_grid | object  | { gx:int, gy:int }       |
+| pos_norm | object  | { x:float, y:float }（任意） |
 
 ---
 
-## 動画 × 操作ログ同期（v1）
+## 座標系
 
-* 動画開始 = t=0
-* 固定オフセット方式のみ採用
+### pos_norm
+
+* 基準: 盤面ROI（meta.json の roi_board）
+* 原点: 左上 (0,0)
+* 範囲外は clamp
+
+### pos_grid
+
+* `pos_norm` から算出する離散グリッド
 
 ```
-t_video = t_log + offset_sec
+gx = floor(x_norm * gw)
+gy = floor(y_norm * gh)
 ```
 
-* `offset_sec` は meta.json に保存
-* 許容誤差目標: ±100ms（最大 ±200ms）
+---
+
+## ops.jsonl（schema v1）
+
+* `t_log`: run開始からの秒
+* `x`,`y`: **動画フレーム座標（px）**
 
 ---
 
-## ops.jsonl（操作ログ）仕様（v1）
+## meta.json（schema v1）
 
-### 時刻
-
-* `t_log` は **録画開始（run開始）からの秒（float, sec）**
-
-### 座標系（v1確定）
-
-* `x`,`y` は **動画フレーム座標（px）**
-
-  * 原点: 動画左上 (0,0)
-  * 軸方向: x→右、y→下
-  * 範囲: `0 <= x < video_w`, `0 <= y < video_h`
-
-### 必須フィールド
-
-| key   | type   | 内容                                            |
-| ----- | ------ | --------------------------------------------- |
-| t_log | number | run開始からの秒                                     |
-| kind  | string | tap / key / mouse_move 等（Phase 1 は tap のみでも可） |
-| x     | number | 動画座標（px）                                      |
-| y     | number | 動画座標（px）                                      |
-
----
-
-## meta.json（ランメタ情報）仕様（v1）
-
-### 必須キー
+必須キー:
 
 * run_id
 * video_path
 * ops_path
-* video_w, video_h（動画フレーム解像度 px）
-* roi_board: { x1, y1, x2, y2 }（盤面ROIのpx座標。基準は動画座標）
+* video_w, video_h
+* roi_board
 * gw, gh
 * offset_sec
-* fps（不明なら null 可）
-* created_at（ISO文字列）
+* fps
+* created_at
 
 ---
 
-## dataset 生成（方針 v1）
+## dataset 生成（rev 1.3）
 
-### frames の扱い（rev 1.3 で確定）
+### frames
 
-* frames は `runs/<run_id>/frames/` に生成
-* build_dataset.py が video から必要フレームを切り出して生成（事前生成不要）
-* **frames の画像は「盤面ROIを切り出したROI画像」**（フルフレームではない）
-* 命名: `frames/{seq:06d}.png` を推奨
+* 生成場所: `runs/<run_id>/frames/`
+* 生成主体: `build_dataset.py`
+* **盤面ROIを切り出した画像**（フルフレームではない）
+* 命名: `{seq:06d}.png`
 
-### dataset.jsonl 最小スキーマ（v1）
+### dataset.jsonl（schema v1）
 
-| key            | type   | 必須 | 内容                                   |
-| -------------- | ------ | -: | ------------------------------------ |
-| schema_version | string |  ✓ | "dataset/1"                          |
-| sample_id      | string |  ✓ | `${run_id}:${seq}` 推奨                |
-| run_id         | string |  ✓ | run識別子                               |
-| t_action       | number |  ✓ | 行動時刻（動画基準秒）                          |
-| image_path     | string |  ✓ | `runs/<run_id>/frames/{seq:06d}.png` |
-| label          | object |  ✓ | Phase1: {slot, pos_grid}             |
-| meta_ref       | string | 任意 | meta.json 参照                         |
+| key            | 内容                 |
+| -------------- | ------------------ |
+| schema_version | `dataset/1`        |
+| sample_id      | `${run_id}:${seq}` |
+| run_id         | run識別子             |
+| t_action       | 行動時刻               |
+| image_path     | frames 内画像         |
+| label          | {slot, pos_grid}   |
+| meta_ref       | meta.json 参照       |
 
 ---
 
 ## Phase 1 合格基準
 
 * action precision ≥ 0.95
-* action recall ≥ 0.90（努力目標）
+* action recall ≥ 0.90
 * Top-3 accuracy ≥ 0.60
 * 最小データ量: 5試合 or 500 action

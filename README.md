@@ -1,5 +1,9 @@
 # README.md
 
+> Doc revision: **rev 1.3**
+>
+> ※ この **rev** はドキュメント／仕様書の改訂番号です。`schema_version`（例: `kifu/1`, `dataset/1`）とは**別物**です。
+
 ## 概要
 
 本リポジトリは、**Clash Royale（クラロワ）の録画動画と操作ログから棋譜（イベント列）を生成し、学習によって次の行動を提案するAIシステム**の研究・実装を目的としています。
@@ -16,6 +20,7 @@
    棋譜生成 (kifu.jsonl)
         ↓
    dataset 生成 (dataset.jsonl + frames/)
+     ※入力: kifu.jsonl + video.mp4 + meta.json
         ↓
    行動提案モデル学習
         ↓
@@ -30,7 +35,7 @@
 .
 ├── tools/
 │   ├── extract_kifu.py      # video + ops + meta → kifu
-│   ├── build_dataset.py     # kifu + meta + video → dataset + frames
+│   ├── build_dataset.py     # kifu + video + meta → dataset + frames
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -52,7 +57,7 @@
 
 ---
 
-## ops.jsonl（v1）
+## ops.jsonl（schema v1）
 
 ### 最小例
 
@@ -60,14 +65,17 @@
 {"t_log":12.221,"kind":"tap","x":840,"y":1560}
 ```
 
-### 座標系（重要）
+### 座標系
 
-* `x`,`y` は **動画フレーム座標（px）**（原点=左上、x→右、y→下）
+* `x`,`y` は **動画フレーム座標（px）**
+
+  * 原点: 左上 (0,0)
+  * x: 右方向増加 / y: 下方向増加
 * `t_log` は run開始からの秒
 
 ---
 
-## meta.json（v1）
+## meta.json（schema v1）
 
 ### 最小例
 
@@ -89,15 +97,16 @@
 
 ---
 
-## frames/（v1.3 で確定）
+## frames/（rev 1.3 で確定）
 
 * **frames は `runs/<run_id>/frames/` に生成**
 * **build_dataset.py が video から必要フレームを切り出して生成**（事前生成不要）
-* 命名: `frames/{seq:06d}.png`（dataset の sample_id と対応）
+* 命名: `frames/{seq:06d}.png`
+* **画像は盤面ROIを切り出した ROI 画像**（フルフレームではない）
 
 ---
 
-## kifu.jsonl（v1）
+## kifu.jsonl（schema v1）
 
 ```json
 {"schema_version":"kifu/1","run_id":"runA","seq":12,"event_id":"runA:12","t":12.345,"type":"action","actor":"self","confidence":1.0,"slot":2,"pos_grid":{"gx":4,"gy":7}}
@@ -105,7 +114,7 @@
 
 ---
 
-## dataset.jsonl（v1 最小）
+## dataset.jsonl（schema v1・最小）
 
 ```json
 {
