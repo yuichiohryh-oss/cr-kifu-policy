@@ -79,14 +79,14 @@ gy = min(gy, gh - 1)
 ### 最小例
 
 ```json
-{"t_log":12.221,"kind":"tap","x":840,"y":1560}
+{"t_log":12.221,"kind":"tap","x":360,"y":780}
 ```
 
 ### フィールド
 
-* `t_log`: run開始からの秒
-* `kind`: **必須**（v1: `tap`, `key`, `mouse_move`）
-* `x`,`y`: **動画フレーム座標（px）**
+* `t_log`（必須）: run開始からの秒（float, sec）
+* `kind`（必須）: 入力種別（v1: `tap`, `key`, `mouse_move`）
+* `x`,`y`（必須）: **動画フレーム座標（px）**
 
 ---
 
