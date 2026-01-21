@@ -199,6 +199,17 @@ python tools/build_dataset.py \
   --frames-dir runs/run_20260120_01/frames
 ```
 
+### 2.5) dataset validation (optional)
+
+```bash
+python tools/validate_run.py \
+  --video runs/run_20260120_01/video.mp4 \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --check-files
+```
+
 ### 3) end-to-end smoke run
 
 ```bash

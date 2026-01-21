@@ -77,6 +77,12 @@ def parse_args():
     parser.add_argument("--ops", required=True, help="Path to ops.jsonl")
     parser.add_argument("--meta", required=True, help="Path to meta.json")
     parser.add_argument("--kifu", help="Optional kifu.jsonl to validate")
+    parser.add_argument("--dataset", help="Optional dataset.jsonl to validate")
+    parser.add_argument(
+        "--check-files",
+        action="store_true",
+        help="Check referenced dataset image files exist",
+    )
     parser.add_argument(
         "--sync-window-ms",
         type=float,
@@ -100,6 +106,8 @@ def main():
             raise SystemExit(f"Missing required file: {path}")
     if args.kifu and not Path(args.kifu).is_file():
         raise SystemExit(f"Missing kifu file: {args.kifu}")
+    if args.dataset and not Path(args.dataset).is_file():
+        raise SystemExit(f"Missing dataset file: {args.dataset}")
 
     meta = load_json(args.meta)
     run_id = get_required(meta, "run_id", "meta.json")
@@ -197,6 +205,59 @@ def main():
             "seq_issues": seq_issues,
         }
 
+    dataset_stats = None
+    if args.dataset:
+        dataset_total = 0
+        dataset_schema_mismatch = 0
+        dataset_run_id_mismatch = 0
+        dataset_missing_fields = 0
+        dataset_missing_images = 0
+        for sample in iter_jsonl(args.dataset):
+            dataset_total += 1
+            if sample.get("schema_version") != "dataset/1":
+                dataset_schema_mismatch += 1
+            if sample.get("run_id") != run_id:
+                dataset_run_id_mismatch += 1
+
+            if "sample_id" not in sample or "image_path" not in sample:
+                dataset_missing_fields += 1
+                continue
+
+            label = sample.get("label")
+            pos_grid = label.get("pos_grid") if label else None
+            if (
+                label is None
+                or "slot" not in label
+                or pos_grid is None
+                or "gx" not in pos_grid
+                or "gy" not in pos_grid
+            ):
+                dataset_missing_fields += 1
+                continue
+
+            if args.check_files:
+                image_path = Path(sample["image_path"])
+                if not image_path.is_file():
+                    dataset_missing_images += 1
+
+        if dataset_missing_fields > 0:
+            errors.append(
+                f"dataset.jsonl has {dataset_missing_fields} entries missing fields"
+            )
+        if args.check_files and dataset_missing_images > 0:
+            errors.append(
+                f"dataset.jsonl has {dataset_missing_images} missing image files"
+            )
+
+        dataset_stats = {
+            "total": dataset_total,
+            "schema_mismatch": dataset_schema_mismatch,
+            "run_id_mismatch": dataset_run_id_mismatch,
+            "missing_fields": dataset_missing_fields,
+            "missing_images": dataset_missing_images,
+            "check_files": args.check_files,
+        }
+
     report = {
         "schema_version": "run_check/1",
         "run_id": run_id,
@@ -224,6 +285,7 @@ def main():
             "sync_window_ms": args.sync_window_ms,
         },
         "kifu": kifu_stats,
+        "dataset": dataset_stats,
         "warnings": warnings,
         "errors": errors,
     }
