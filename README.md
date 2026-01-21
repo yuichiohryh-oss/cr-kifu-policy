@@ -39,6 +39,7 @@
 │   ├── validate_run.py      # video + ops + meta (+kifu) validation
 │   ├── score_kifu.py         # pred kifu vs gt kifu scoring
 │   ├── score_policy.py       # policy top-k scoring
+│   ├── check_phase1.py       # phase 1 criteria check
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -232,6 +233,16 @@ python tools/score_policy.py \
   --dataset runs/run_20260120_01/dataset.jsonl \
   --topk 3 \
   --out models/run_20260120_01/policy_score.json
+```
+
+### 4) phase 1 check (optional)
+
+```bash
+python tools/check_phase1.py \
+  --kifu-score runs/run_20260120_01/kifu_score.json \
+  --policy-score models/run_20260120_01/policy_score.json \
+  --games 5 \
+  --out runs/run_20260120_01/phase1_check.json
 ```
 
 ---
