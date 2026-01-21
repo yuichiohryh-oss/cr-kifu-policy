@@ -38,6 +38,7 @@
 │   ├── build_dataset.py     # kifu + video + meta → dataset + frames
 │   ├── validate_run.py      # video + ops + meta (+kifu) validation
 │   ├── score_kifu.py         # pred kifu vs gt kifu scoring
+│   ├── score_policy.py       # policy top-k scoring
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -221,6 +222,16 @@ python tools/predict_policy.py \
   --model models/run_20260120_01/policy.pt \
   --video runs/run_20260120_01/video.mp4 \
   --meta runs/run_20260120_01/meta.json
+```
+
+### 3.5) policy score (optional)
+
+```bash
+python tools/score_policy.py \
+  --model models/run_20260120_01/policy.pt \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --topk 3 \
+  --out models/run_20260120_01/policy_score.json
 ```
 
 ---
