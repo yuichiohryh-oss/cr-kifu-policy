@@ -41,6 +41,13 @@ def parse_roi(meta):
     return x1, y1, x2, y2
 
 
+def resolve_meta_path(path_value, base_dir):
+    path = Path(path_value)
+    if not path.is_absolute():
+        path = base_dir / path
+    return path.resolve()
+
+
 def ensure_cv2():
     try:
         import cv2  # type: ignore
@@ -122,6 +129,27 @@ def main():
     errors = []
     warnings = []
 
+    meta_dir = Path(args.meta).parent
+    meta_video_path = meta.get("video_path")
+    if meta_video_path:
+        meta_video_resolved = resolve_meta_path(meta_video_path, meta_dir)
+        if not meta_video_resolved.is_file():
+            warnings.append("meta.json video_path does not exist")
+        else:
+            video_resolved = Path(args.video).resolve()
+            if meta_video_resolved != video_resolved:
+                warnings.append("meta.json video_path does not match --video")
+
+    meta_ops_path = meta.get("ops_path")
+    if meta_ops_path:
+        meta_ops_resolved = resolve_meta_path(meta_ops_path, meta_dir)
+        if not meta_ops_resolved.is_file():
+            warnings.append("meta.json ops_path does not exist")
+        else:
+            ops_resolved = Path(args.ops).resolve()
+            if meta_ops_resolved != ops_resolved:
+                warnings.append("meta.json ops_path does not match --ops")
+
     if gw <= 0 or gh <= 0:
         errors.append("meta.json gw/gh must be positive")
 
@@ -144,22 +172,48 @@ def main():
     ops_tap = 0
     tap_out_of_bounds = 0
     tap_out_of_range = 0
+    tap_outside_roi = 0
+    ops_unknown_kind = 0
+    ops_kind_counts = {}
+    t_log_min = None
+    t_log_max = None
     t_video_min = None
     t_video_max = None
+    t_log_prev = None
+    t_log_nonmonotonic = 0
+    allowed_kinds = {"tap", "key", "mouse_move"}
 
     for op in iter_jsonl(args.ops):
         ops_total += 1
+        kind = op.get("kind")
+        if kind is None:
+            ops_unknown_kind += 1
+        else:
+            ops_kind_counts[kind] = ops_kind_counts.get(kind, 0) + 1
+            if kind not in allowed_kinds:
+                ops_unknown_kind += 1
+
         if "t_log" not in op:
             errors.append("ops.jsonl entry missing t_log")
             continue
-        if op.get("kind") != "tap":
+
+        t_log = float(op["t_log"])
+        if t_log_min is None or t_log < t_log_min:
+            t_log_min = t_log
+        if t_log_max is None or t_log > t_log_max:
+            t_log_max = t_log
+        if t_log_prev is not None and t_log < t_log_prev:
+            t_log_nonmonotonic += 1
+        t_log_prev = t_log
+
+        if kind != "tap":
             continue
+
         if "x" not in op or "y" not in op:
             errors.append("ops.jsonl tap entry missing x/y")
             continue
 
         ops_tap += 1
-        t_log = float(op["t_log"])
         t_video = t_log + offset_sec
         if t_video_min is None or t_video < t_video_min:
             t_video_min = t_video
@@ -170,6 +224,8 @@ def main():
         y = float(op["y"])
         if x < 0 or x >= video_w or y < 0 or y >= video_h:
             tap_out_of_bounds += 1
+        if x < roi_x1 or x >= roi_x2 or y < roi_y1 or y >= roi_y2:
+            tap_outside_roi += 1
 
         if duration_sec > 0:
             if t_video < -sync_window_sec or t_video > duration_sec + sync_window_sec:
@@ -280,8 +336,13 @@ def main():
             "total": ops_total,
             "tap": ops_tap,
             "tap_out_of_bounds": tap_out_of_bounds,
+            "tap_outside_roi": tap_outside_roi,
             "tap_out_of_range": tap_out_of_range,
+            "t_log_range": summarize_range(t_log_min, t_log_max),
+            "t_log_nonmonotonic": t_log_nonmonotonic,
             "t_video_range": summarize_range(t_video_min, t_video_max),
+            "kind_counts": ops_kind_counts,
+            "unknown_kind": ops_unknown_kind,
             "sync_window_ms": args.sync_window_ms,
         },
         "kifu": kifu_stats,
