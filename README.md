@@ -40,6 +40,7 @@
 │   ├── score_kifu.py         # pred kifu vs gt kifu scoring
 │   ├── stats_kifu.py         # kifu stats summary
 │   ├── stats_dataset.py      # dataset stats summary
+│   ├── stats_ops.py          # ops stats summary
 │   ├── score_policy.py       # policy top-k scoring
 │   ├── check_phase1.py       # phase 1 criteria check
 │   ├── train_policy.py
@@ -178,6 +179,14 @@ python tools/extract_kifu.py \
   --ops runs/run_20260120_01/ops.jsonl \
   --meta runs/run_20260120_01/meta.json \
   --out runs/run_20260120_01/kifu.jsonl
+```
+
+### 1.2) ops stats (optional)
+
+```bash
+python tools/stats_ops.py \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --out runs/run_20260120_01/ops_stats.json
 ```
 
 ### 1.5) kifu score (optional)
