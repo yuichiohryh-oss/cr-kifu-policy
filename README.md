@@ -142,25 +142,62 @@ t_video = t_log + offset_sec
 
 ## 最小実行例
 
+### 0) runs/<run_id>/ の最小セット（例: run_20260120_01）
+
+```
+runs/run_20260120_01/
+├── video.mp4
+├── ops.jsonl
+└── meta.json
+```
+
+> meta.json の `run_id` と `*_path` は、このディレクトリ名に合わせる
+
 ### 1) 棋譜生成（Phase 1: action のみ）
 
 ```bash
 python tools/extract_kifu.py \
-  --video runs/runA/video.mp4 \
-  --ops runs/runA/ops.jsonl \
-  --meta runs/runA/meta.json \
-  --out runs/runA/kifu.jsonl
+  --video runs/run_20260120_01/video.mp4 \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --out runs/run_20260120_01/kifu.jsonl
 ```
 
 ### 2) dataset + frames 生成
 
 ```bash
 python tools/build_dataset.py \
-  --video runs/runA/video.mp4 \
-  --meta runs/runA/meta.json \
-  --kifu runs/runA/kifu.jsonl \
-  --out runs/runA/dataset.jsonl \
-  --frames-dir runs/runA/frames
+  --video runs/run_20260120_01/video.mp4 \
+  --meta runs/run_20260120_01/meta.json \
+  --kifu runs/run_20260120_01/kifu.jsonl \
+  --out runs/run_20260120_01/dataset.jsonl \
+  --frames-dir runs/run_20260120_01/frames
+```
+
+### 3) end-to-end smoke run
+
+```bash
+python tools/extract_kifu.py \
+  --video runs/run_20260120_01/video.mp4 \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --out runs/run_20260120_01/kifu.jsonl
+
+python tools/build_dataset.py \
+  --video runs/run_20260120_01/video.mp4 \
+  --meta runs/run_20260120_01/meta.json \
+  --kifu runs/run_20260120_01/kifu.jsonl \
+  --out runs/run_20260120_01/dataset.jsonl \
+  --frames-dir runs/run_20260120_01/frames
+
+python tools/train_policy.py \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --out models/run_20260120_01
+
+python tools/predict_policy.py \
+  --model models/run_20260120_01/policy.pt \
+  --video runs/run_20260120_01/video.mp4 \
+  --meta runs/run_20260120_01/meta.json
 ```
 
 ---
