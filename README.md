@@ -227,8 +227,10 @@ python tools/validate_run.py \
   --video runs/run_20260120_01/video.mp4 \
   --ops runs/run_20260120_01/ops.jsonl \
   --meta runs/run_20260120_01/meta.json \
+  --kifu runs/run_20260120_01/kifu.jsonl \
   --dataset runs/run_20260120_01/dataset.jsonl \
-  --check-files
+  --check-files \
+  --check-consistency
 ```
 
 ### 2.6) dataset stats (optional)

@@ -91,6 +91,11 @@ def parse_args():
         help="Check referenced dataset image files exist",
     )
     parser.add_argument(
+        "--check-consistency",
+        action="store_true",
+        help="Check dataset labels match kifu actions when both are provided",
+    )
+    parser.add_argument(
         "--sync-window-ms",
         type=float,
         default=100.0,
@@ -115,6 +120,8 @@ def main():
         raise SystemExit(f"Missing kifu file: {args.kifu}")
     if args.dataset and not Path(args.dataset).is_file():
         raise SystemExit(f"Missing dataset file: {args.dataset}")
+    if args.check_consistency and (not args.kifu or not args.dataset):
+        raise SystemExit("--check-consistency requires --kifu and --dataset")
 
     meta = load_json(args.meta)
     run_id = get_required(meta, "run_id", "meta.json")
@@ -232,6 +239,7 @@ def main():
                 tap_out_of_range += 1
 
     kifu_stats = None
+    kifu_action_map = {}
     if args.kifu:
         kifu_total = 0
         kifu_action = 0
@@ -239,6 +247,12 @@ def main():
         seq_issues = 0
         run_id_mismatch = 0
         schema_mismatch = 0
+        seq_seen = set()
+        kifu_missing_fields = 0
+        kifu_pos_grid_out_of_range = 0
+        kifu_pos_norm_out_of_range = 0
+        kifu_t_out_of_range = 0
+        kifu_duplicate_seq = 0
         for event in iter_jsonl(args.kifu):
             kifu_total += 1
             if event.get("schema_version") != "kifu/1":
@@ -246,19 +260,91 @@ def main():
             if event.get("run_id") != run_id:
                 run_id_mismatch += 1
             seq = event.get("seq")
+            seq_int = None
             if seq is not None:
-                seq = int(seq)
-                if seq_prev is not None and seq <= seq_prev:
+                seq_int = int(seq)
+                if seq_int in seq_seen:
+                    kifu_duplicate_seq += 1
+                else:
+                    seq_seen.add(seq_int)
+                if seq_prev is not None and seq_int <= seq_prev:
                     seq_issues += 1
-                seq_prev = seq
+                seq_prev = seq_int
+            else:
+                kifu_missing_fields += 1
+
+            t_val = event.get("t")
+            if t_val is not None:
+                t_val = float(t_val)
+                if duration_sec > 0:
+                    if t_val < -sync_window_sec or t_val > duration_sec + sync_window_sec:
+                        kifu_t_out_of_range += 1
+            elif event.get("type") == "action":
+                kifu_missing_fields += 1
+
             if event.get("type") == "action":
                 kifu_action += 1
+                slot = event.get("slot")
+                pos_grid = event.get("pos_grid")
+                if (
+                    slot is None
+                    or pos_grid is None
+                    or "gx" not in pos_grid
+                    or "gy" not in pos_grid
+                ):
+                    kifu_missing_fields += 1
+                else:
+                    gx = int(pos_grid["gx"])
+                    gy = int(pos_grid["gy"])
+                    if gx < 0 or gx >= gw or gy < 0 or gy >= gh:
+                        kifu_pos_grid_out_of_range += 1
+                    if seq_int is not None:
+                        kifu_action_map[seq_int] = {
+                            "slot": int(slot),
+                            "gx": gx,
+                            "gy": gy,
+                            "t": t_val,
+                        }
+
+                pos_norm = event.get("pos_norm")
+                if pos_norm and "x" in pos_norm and "y" in pos_norm:
+                    x_norm = float(pos_norm["x"])
+                    y_norm = float(pos_norm["y"])
+                    if (
+                        x_norm < 0.0
+                        or x_norm > 1.0
+                        or y_norm < 0.0
+                        or y_norm > 1.0
+                    ):
+                        kifu_pos_norm_out_of_range += 1
+
+        if kifu_missing_fields > 0:
+            errors.append(f"kifu.jsonl has {kifu_missing_fields} entries missing fields")
+        if kifu_pos_grid_out_of_range > 0:
+            errors.append(
+                f"kifu.jsonl has {kifu_pos_grid_out_of_range} pos_grid out of range"
+            )
+        if kifu_pos_norm_out_of_range > 0:
+            warnings.append(
+                f"kifu.jsonl has {kifu_pos_norm_out_of_range} pos_norm out of range"
+            )
+        if kifu_t_out_of_range > 0:
+            warnings.append(
+                f"kifu.jsonl has {kifu_t_out_of_range} events outside video time range"
+            )
+        if kifu_duplicate_seq > 0:
+            errors.append(f"kifu.jsonl has {kifu_duplicate_seq} duplicate seq values")
         kifu_stats = {
             "total": kifu_total,
             "action": kifu_action,
             "schema_mismatch": schema_mismatch,
             "run_id_mismatch": run_id_mismatch,
             "seq_issues": seq_issues,
+            "missing_fields": kifu_missing_fields,
+            "pos_grid_out_of_range": kifu_pos_grid_out_of_range,
+            "pos_norm_out_of_range": kifu_pos_norm_out_of_range,
+            "t_out_of_range": kifu_t_out_of_range,
+            "duplicate_seq": kifu_duplicate_seq,
         }
 
     dataset_stats = None
@@ -268,6 +354,13 @@ def main():
         dataset_run_id_mismatch = 0
         dataset_missing_fields = 0
         dataset_missing_images = 0
+        dataset_consistency = None
+        dataset_sample_id_invalid = 0
+        dataset_sample_id_mismatch = 0
+        dataset_kifu_missing = 0
+        dataset_label_mismatch = 0
+        dataset_t_mismatch = 0
+        t_action_tol = (1.0 / fps_meta) if fps_meta > 0 else None
         for sample in iter_jsonl(args.dataset):
             dataset_total += 1
             if sample.get("schema_version") != "dataset/1":
@@ -291,10 +384,48 @@ def main():
                 dataset_missing_fields += 1
                 continue
 
+            slot_val = int(label["slot"])
+            gx_val = int(pos_grid["gx"])
+            gy_val = int(pos_grid["gy"])
+
             if args.check_files:
                 image_path = Path(sample["image_path"])
                 if not image_path.is_file():
                     dataset_missing_images += 1
+
+            if args.check_consistency:
+                sample_id = sample.get("sample_id")
+                seq_val = None
+                if isinstance(sample_id, str) and ":" in sample_id:
+                    sample_run_id, seq_str = sample_id.rsplit(":", 1)
+                    if sample_run_id != run_id:
+                        dataset_sample_id_mismatch += 1
+                    try:
+                        seq_val = int(seq_str)
+                    except ValueError:
+                        dataset_sample_id_invalid += 1
+                else:
+                    dataset_sample_id_invalid += 1
+
+                if seq_val is not None:
+                    kifu_action = kifu_action_map.get(seq_val)
+                    if not kifu_action:
+                        dataset_kifu_missing += 1
+                    else:
+                        if (
+                            kifu_action["slot"] != slot_val
+                            or kifu_action["gx"] != gx_val
+                            or kifu_action["gy"] != gy_val
+                        ):
+                            dataset_label_mismatch += 1
+                        t_action = sample.get("t_action")
+                        if (
+                            t_action_tol is not None
+                            and t_action is not None
+                            and kifu_action.get("t") is not None
+                        ):
+                            if abs(float(t_action) - kifu_action["t"]) > t_action_tol:
+                                dataset_t_mismatch += 1
 
         if dataset_missing_fields > 0:
             errors.append(
@@ -304,6 +435,35 @@ def main():
             errors.append(
                 f"dataset.jsonl has {dataset_missing_images} missing image files"
             )
+        if args.check_consistency:
+            if dataset_sample_id_invalid > 0:
+                errors.append(
+                    f"dataset.jsonl has {dataset_sample_id_invalid} invalid sample_id"
+                )
+            if dataset_sample_id_mismatch > 0:
+                errors.append(
+                    f"dataset.jsonl has {dataset_sample_id_mismatch} sample_id run_id mismatch"
+                )
+            if dataset_kifu_missing > 0:
+                errors.append(
+                    f"dataset.jsonl has {dataset_kifu_missing} entries missing in kifu"
+                )
+            if dataset_label_mismatch > 0:
+                errors.append(
+                    f"dataset.jsonl has {dataset_label_mismatch} label mismatches vs kifu"
+                )
+            if dataset_t_mismatch > 0:
+                warnings.append(
+                    f"dataset.jsonl has {dataset_t_mismatch} t_action mismatches vs kifu"
+                )
+            dataset_consistency = {
+                "sample_id_invalid": dataset_sample_id_invalid,
+                "sample_id_run_id_mismatch": dataset_sample_id_mismatch,
+                "kifu_missing": dataset_kifu_missing,
+                "label_mismatch": dataset_label_mismatch,
+                "t_action_mismatch": dataset_t_mismatch,
+                "t_action_tol": t_action_tol,
+            }
 
         dataset_stats = {
             "total": dataset_total,
@@ -312,6 +472,7 @@ def main():
             "missing_fields": dataset_missing_fields,
             "missing_images": dataset_missing_images,
             "check_files": args.check_files,
+            "consistency": dataset_consistency,
         }
 
     report = {
