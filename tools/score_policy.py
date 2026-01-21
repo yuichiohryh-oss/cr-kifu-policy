@@ -77,6 +77,7 @@ def main():
     }
 
     total = 0
+    valid_samples = 0
     correct_top1 = 0
     correct_topk = 0
     missing_label = 0
@@ -87,6 +88,7 @@ def main():
         if key is None:
             missing_label += 1
             continue
+        valid_samples += 1
         if key == top1:
             correct_top1 += 1
         if key in topk_labels:
@@ -94,15 +96,18 @@ def main():
 
     if total == 0:
         raise SystemExit("No samples found in dataset.jsonl")
+    if valid_samples == 0:
+        raise SystemExit("No valid labels found in dataset.jsonl")
     if missing_label > 0:
         print(f"Warning: {missing_label} samples missing labels.", file=sys.stderr)
 
-    top1_acc = correct_top1 / total
-    topk_acc = correct_topk / total
+    top1_acc = correct_top1 / valid_samples
+    topk_acc = correct_topk / valid_samples
 
     report = {
         "schema_version": "policy_score/1",
         "total_samples": total,
+        "valid_samples": valid_samples,
         "top1_correct": correct_top1,
         "top1_acc": top1_acc,
         "topk": topk,

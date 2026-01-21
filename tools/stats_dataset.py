@@ -40,11 +40,14 @@ def build_grid_counts(grid_counts, gw, gh):
     return grid
 
 
-def resolve_path(path_value):
+def path_exists(path_value, base_dirs):
     path = Path(path_value)
     if path.is_absolute():
-        return path
-    return (Path.cwd() / path).resolve()
+        return path.is_file()
+    for base_dir in base_dirs:
+        if base_dir and (base_dir / path).is_file():
+            return True
+    return False
 
 
 def parse_args():
@@ -66,6 +69,13 @@ def main():
         raise SystemExit(f"Missing file: {args.dataset}")
     if args.meta and not Path(args.meta).is_file():
         raise SystemExit(f"Missing file: {args.meta}")
+
+    dataset_dir = Path(args.dataset).parent
+    meta_dir = Path(args.meta).parent if args.meta else None
+    repo_root = None
+    if dataset_dir.parent.name == "runs":
+        repo_root = dataset_dir.parent.parent
+    candidate_bases = [dataset_dir, meta_dir, repo_root, Path.cwd()]
 
     gw = None
     gh = None
@@ -110,8 +120,7 @@ def main():
         if image_path is None:
             image_missing_field += 1
         elif args.check_files:
-            resolved = resolve_path(image_path)
-            if not resolved.is_file():
+            if not path_exists(image_path, candidate_bases):
                 image_missing += 1
 
         label = sample.get("label")

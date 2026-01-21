@@ -48,6 +48,16 @@ def resolve_meta_path(path_value, base_dir):
     return path.resolve()
 
 
+def path_exists(path_value, base_dirs):
+    path = Path(path_value)
+    if path.is_absolute():
+        return path.is_file()
+    for base_dir in base_dirs:
+        if base_dir and (base_dir / path).is_file():
+            return True
+    return False
+
+
 def ensure_cv2():
     try:
         import cv2  # type: ignore
@@ -137,6 +147,11 @@ def main():
     warnings = []
 
     meta_dir = Path(args.meta).parent
+    dataset_dir = Path(args.dataset).parent if args.dataset else None
+    repo_root = None
+    if dataset_dir and dataset_dir.parent.name == "runs":
+        repo_root = dataset_dir.parent.parent
+    candidate_bases = [dataset_dir, meta_dir, repo_root, Path.cwd()]
     meta_video_path = meta.get("video_path")
     if meta_video_path:
         meta_video_resolved = resolve_meta_path(meta_video_path, meta_dir)
@@ -389,8 +404,7 @@ def main():
             gy_val = int(pos_grid["gy"])
 
             if args.check_files:
-                image_path = Path(sample["image_path"])
-                if not image_path.is_file():
+                if not path_exists(sample["image_path"], candidate_bases):
                     dataset_missing_images += 1
 
             if args.check_consistency:

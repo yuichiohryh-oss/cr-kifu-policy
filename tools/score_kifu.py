@@ -51,38 +51,50 @@ def load_actions(path):
     return actions
 
 
-def index_by_label(actions):
+def group_times_by_label(actions):
     label_map = {}
     for action in actions:
         key = (action["slot"], action["gx"], action["gy"])
-        label_map.setdefault(key, []).append(action)
+        label_map.setdefault(key, []).append(action["t"])
     for key in label_map:
-        label_map[key].sort(key=lambda item: item["t"])
+        label_map[key].sort()
     return label_map
 
 
-def match_actions(pred_actions, gt_index, tol_sec):
+def match_label_times(pred_times, gt_times, tol_sec):
     matched = 0
     time_deltas = []
-    for pred in pred_actions:
-        key = (pred["slot"], pred["gx"], pred["gy"])
-        candidates = gt_index.get(key)
-        if not candidates:
-            continue
-        best_idx = None
-        best_dt = None
-        upper = pred["t"] + tol_sec
-        for idx, gt in enumerate(candidates):
-            dt = abs(gt["t"] - pred["t"])
-            if gt["t"] > upper and best_dt is not None:
-                break
-            if dt <= tol_sec and (best_dt is None or dt < best_dt):
-                best_dt = dt
-                best_idx = idx
-        if best_idx is not None:
-            candidates.pop(best_idx)
+    pred_idx = 0
+    gt_idx = 0
+    while pred_idx < len(pred_times) and gt_idx < len(gt_times):
+        pred_t = pred_times[pred_idx]
+        gt_t = gt_times[gt_idx]
+        if abs(pred_t - gt_t) <= tol_sec:
             matched += 1
-            time_deltas.append(best_dt)
+            time_deltas.append(abs(pred_t - gt_t))
+            pred_idx += 1
+            gt_idx += 1
+        elif pred_t < gt_t - tol_sec:
+            pred_idx += 1
+        else:
+            gt_idx += 1
+    return matched, time_deltas
+
+
+def match_actions(pred_actions, gt_actions, tol_sec):
+    matched = 0
+    time_deltas = []
+    pred_map = group_times_by_label(pred_actions)
+    gt_map = group_times_by_label(gt_actions)
+    for key, pred_times in pred_map.items():
+        gt_times = gt_map.get(key)
+        if not gt_times:
+            continue
+        label_matched, label_deltas = match_label_times(
+            pred_times, gt_times, tol_sec
+        )
+        matched += label_matched
+        time_deltas.extend(label_deltas)
     return matched, time_deltas
 
 
@@ -108,9 +120,7 @@ def main():
     gt_actions = load_actions(args.gt)
 
     pred_actions.sort(key=lambda item: item["t"])
-    gt_index = index_by_label(gt_actions)
-
-    matched, time_deltas = match_actions(pred_actions, gt_index, tol_sec)
+    matched, time_deltas = match_actions(pred_actions, gt_actions, tol_sec)
     pred_total = len(pred_actions)
     gt_total = len(gt_actions)
 

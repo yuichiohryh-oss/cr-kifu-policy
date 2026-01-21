@@ -70,6 +70,14 @@ def main():
             "topk_used": topk_used,
         }
     )
+    checks.append(
+        {
+            "name": "topk_match",
+            "value": topk_used,
+            "threshold": args.topk,
+            "pass": topk_used == args.topk,
+        }
+    )
 
     data_pass = False
     data_reason = []
@@ -102,7 +110,9 @@ def main():
 
     overall = all(check["pass"] for check in checks)
     warnings = []
-    if topk_used and topk_used != args.topk:
+    if topk_used == 0:
+        warnings.append("policy_score missing topk field")
+    elif topk_used != args.topk:
         warnings.append(
             f"policy_score topk={topk_used} differs from expected {args.topk}"
         )
