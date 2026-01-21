@@ -19,6 +19,16 @@ def parse_args():
     return parser.parse_args()
 
 
+def label_score(label, total_samples):
+    prob = label.get("prob")
+    if prob is not None:
+        return float(prob)
+    count = label.get("count", 0)
+    if total_samples > 0:
+        return float(count) / total_samples
+    return float(count)
+
+
 def main():
     args = parse_args()
     for path in (args.model, args.video, args.meta):
@@ -30,21 +40,25 @@ def main():
         print("Warning: unexpected model schema_version", file=sys.stderr)
 
     labels = model.get("labels", [])
-    total_samples = model.get("total_samples", 0) or 0
+    total_samples = int(model.get("total_samples", 0) or 0)
     if not labels:
         raise SystemExit("Model contains no labels to predict")
+    if total_samples <= 0:
+        total_samples = sum(int(label.get("count", 0)) for label in labels)
 
     meta = load_json(args.meta)
     run_id = meta.get("run_id", "unknown")
 
+    labels_sorted = sorted(
+        labels,
+        key=lambda label: label_score(label, total_samples),
+        reverse=True,
+    )
     topk = max(1, args.topk)
-    topk = min(topk, len(labels))
+    topk = min(topk, len(labels_sorted))
     predictions = []
-    for rank, label in enumerate(labels[:topk], 1):
-        prob = label.get("prob")
-        if prob is None:
-            count = label.get("count", 0)
-            prob = (count / total_samples) if total_samples else 0.0
+    for rank, label in enumerate(labels_sorted[:topk], 1):
+        prob = label_score(label, total_samples)
         predictions.append(
             {
                 "rank": rank,
