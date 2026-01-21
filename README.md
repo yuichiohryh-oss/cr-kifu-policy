@@ -36,6 +36,7 @@
 ├── tools/
 │   ├── extract_kifu.py      # video + ops + meta → kifu
 │   ├── build_dataset.py     # kifu + video + meta → dataset + frames
+│   ├── validate_run.py      # video + ops + meta (+kifu) validation
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -152,6 +153,17 @@ runs/run_20260120_01/
 ```
 
 > meta.json の `run_id` と `*_path` は、このディレクトリ名に合わせる
+
+### 0.5) run validation (optional)
+
+```bash
+python tools/validate_run.py \
+  --video runs/run_20260120_01/video.mp4 \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --kifu runs/run_20260120_01/kifu.jsonl \
+  --out runs/run_20260120_01/run_check.json
+```
 
 ### 1) 棋譜生成（Phase 1: action のみ）
 
