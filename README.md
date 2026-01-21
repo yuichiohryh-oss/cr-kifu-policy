@@ -37,6 +37,7 @@
 │   ├── extract_kifu.py      # video + ops + meta → kifu
 │   ├── build_dataset.py     # kifu + video + meta → dataset + frames
 │   ├── validate_run.py      # video + ops + meta (+kifu) validation
+│   ├── score_kifu.py         # pred kifu vs gt kifu scoring
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -173,6 +174,16 @@ python tools/extract_kifu.py \
   --ops runs/run_20260120_01/ops.jsonl \
   --meta runs/run_20260120_01/meta.json \
   --out runs/run_20260120_01/kifu.jsonl
+```
+
+### 1.5) kifu score (optional)
+
+```bash
+python tools/score_kifu.py \
+  --pred runs/run_20260120_01/kifu.jsonl \
+  --gt runs/run_20260120_01/kifu_gt.jsonl \
+  --time-tol-ms 100 \
+  --out runs/run_20260120_01/kifu_score.json
 ```
 
 ### 2) dataset + frames 生成
