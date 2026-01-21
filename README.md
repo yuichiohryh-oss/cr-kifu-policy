@@ -41,6 +41,7 @@
 │   ├── stats_kifu.py         # kifu stats summary
 │   ├── stats_dataset.py      # dataset stats summary
 │   ├── stats_ops.py          # ops stats summary
+│   ├── stats_policy.py       # policy stats summary
 │   ├── score_policy.py       # policy top-k scoring
 │   ├── check_phase1.py       # phase 1 criteria check
 │   ├── train_policy.py
@@ -274,6 +275,15 @@ python tools/score_policy.py \
   --dataset runs/run_20260120_01/dataset.jsonl \
   --topk 3 \
   --out models/run_20260120_01/policy_score.json
+```
+
+### 3.6) policy stats (optional)
+
+```bash
+python tools/stats_policy.py \
+  --model models/run_20260120_01/policy.pt \
+  --topk 5 \
+  --out models/run_20260120_01/policy_stats.json
 ```
 
 ### 4) phase 1 check (optional)
