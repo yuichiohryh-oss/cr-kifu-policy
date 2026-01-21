@@ -39,6 +39,7 @@
 │   ├── validate_run.py      # video + ops + meta (+kifu) validation
 │   ├── score_kifu.py         # pred kifu vs gt kifu scoring
 │   ├── stats_kifu.py         # kifu stats summary
+│   ├── stats_dataset.py      # dataset stats summary
 │   ├── score_policy.py       # policy top-k scoring
 │   ├── check_phase1.py       # phase 1 criteria check
 │   ├── train_policy.py
@@ -218,6 +219,16 @@ python tools/validate_run.py \
   --meta runs/run_20260120_01/meta.json \
   --dataset runs/run_20260120_01/dataset.jsonl \
   --check-files
+```
+
+### 2.6) dataset stats (optional)
+
+```bash
+python tools/stats_dataset.py \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --check-files \
+  --out runs/run_20260120_01/dataset_stats.json
 ```
 
 ### 3) end-to-end smoke run
