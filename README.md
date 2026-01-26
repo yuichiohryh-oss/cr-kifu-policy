@@ -36,6 +36,14 @@
 ├── tools/
 │   ├── extract_kifu.py      # video + ops + meta → kifu
 │   ├── build_dataset.py     # kifu + video + meta → dataset + frames
+│   ├── validate_run.py      # video + ops + meta (+kifu) validation
+│   ├── score_kifu.py         # pred kifu vs gt kifu scoring
+│   ├── stats_kifu.py         # kifu stats summary
+│   ├── stats_dataset.py      # dataset stats summary
+│   ├── stats_ops.py          # ops stats summary
+│   ├── stats_policy.py       # policy stats summary
+│   ├── score_policy.py       # policy top-k scoring
+│   ├── check_phase1.py       # phase 1 criteria check
 │   ├── train_policy.py
 │   └── predict_policy.py
 ├── runs/
@@ -153,6 +161,17 @@ runs/run_20260120_01/
 
 > meta.json の `run_id` と `*_path` は、このディレクトリ名に合わせる
 
+### 0.5) run validation (optional)
+
+```bash
+python tools/validate_run.py \
+  --video runs/run_20260120_01/video.mp4 \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --kifu runs/run_20260120_01/kifu.jsonl \
+  --out runs/run_20260120_01/run_check.json
+```
+
 ### 1) 棋譜生成（Phase 1: action のみ）
 
 ```bash
@@ -161,6 +180,33 @@ python tools/extract_kifu.py \
   --ops runs/run_20260120_01/ops.jsonl \
   --meta runs/run_20260120_01/meta.json \
   --out runs/run_20260120_01/kifu.jsonl
+```
+
+### 1.2) ops stats (optional)
+
+```bash
+python tools/stats_ops.py \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --out runs/run_20260120_01/ops_stats.json
+```
+
+### 1.5) kifu score (optional)
+
+```bash
+python tools/score_kifu.py \
+  --pred runs/run_20260120_01/kifu.jsonl \
+  --gt runs/run_20260120_01/kifu_gt.jsonl \
+  --time-tol-ms 100 \
+  --out runs/run_20260120_01/kifu_score.json
+```
+
+### 1.6) kifu stats (optional)
+
+```bash
+python tools/stats_kifu.py \
+  --kifu runs/run_20260120_01/kifu.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --out runs/run_20260120_01/kifu_stats.json
 ```
 
 ### 2) dataset + frames 生成
@@ -172,6 +218,29 @@ python tools/build_dataset.py \
   --kifu runs/run_20260120_01/kifu.jsonl \
   --out runs/run_20260120_01/dataset.jsonl \
   --frames-dir runs/run_20260120_01/frames
+```
+
+### 2.5) dataset validation (optional)
+
+```bash
+python tools/validate_run.py \
+  --video runs/run_20260120_01/video.mp4 \
+  --ops runs/run_20260120_01/ops.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --kifu runs/run_20260120_01/kifu.jsonl \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --check-files \
+  --check-consistency
+```
+
+### 2.6) dataset stats (optional)
+
+```bash
+python tools/stats_dataset.py \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --meta runs/run_20260120_01/meta.json \
+  --check-files \
+  --out runs/run_20260120_01/dataset_stats.json
 ```
 
 ### 3) end-to-end smoke run
@@ -198,6 +267,35 @@ python tools/predict_policy.py \
   --model models/run_20260120_01/policy.pt \
   --video runs/run_20260120_01/video.mp4 \
   --meta runs/run_20260120_01/meta.json
+```
+
+### 3.5) policy score (optional)
+
+```bash
+python tools/score_policy.py \
+  --model models/run_20260120_01/policy.pt \
+  --dataset runs/run_20260120_01/dataset.jsonl \
+  --topk 3 \
+  --out models/run_20260120_01/policy_score.json
+```
+
+### 3.6) policy stats (optional)
+
+```bash
+python tools/stats_policy.py \
+  --model models/run_20260120_01/policy.pt \
+  --topk 5 \
+  --out models/run_20260120_01/policy_stats.json
+```
+
+### 4) phase 1 check (optional)
+
+```bash
+python tools/check_phase1.py \
+  --kifu-score runs/run_20260120_01/kifu_score.json \
+  --policy-score models/run_20260120_01/policy_score.json \
+  --games 5 \
+  --out runs/run_20260120_01/phase1_check.json
 ```
 
 ---
